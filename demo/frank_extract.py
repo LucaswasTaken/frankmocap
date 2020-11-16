@@ -445,7 +445,7 @@ def run_regress(
     return body_bbox_list, hand_bbox_list, integral_output_list
 
 
-def run_frank_mocap(args, bbox_detector, body_mocap, hand_mocap, visualizer):
+def run_frank_mocap(args, bbox_detector, body_mocap, hand_mocap):
     #Setup input data to handle different types of inputs
     input_type, input_data = demo_utils.setup_input(args)
     cur_frame = args.start_frame
@@ -534,6 +534,7 @@ def run_frank_mocap(args, bbox_detector, body_mocap, hand_mocap, visualizer):
             scale = [scalex,scaley,scalez]
         #Associando com nosso Json
         output_json = fill_body_joints(output_json,pred_output_list)
+        print(output_json)
         #salvando nosso output em arquivo
     if(args.scale):
         output_json = scale_joints(output_json,scale)
@@ -546,22 +547,15 @@ def main():
     args.use_smplx = True
 
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-    assert torch.cuda.is_available(), "Current version only supports GPU"
+    # assert torch.cuda.is_available(), "Current version only supports GPU"
 
     hand_bbox_detector =  HandBboxDetector("third_view", device)
-    
+    print(device)
     #Set Mocap regressor
     body_mocap = BodyMocap(args.checkpoint_body_smplx, args.smpl_dir, device = device, use_smplx= True)
     hand_mocap = HandMocap(args.checkpoint_hand, args.smpl_dir, device = device)
 
-    # Set Visualizer
-    if args.renderer_type in ["pytorch3d", "opendr"]:
-        from renderer.screen_free_visualizer import Visualizer
-    else:
-        from renderer.visualizer import Visualizer
-    visualizer = Visualizer(args.renderer_type)
-
-    run_frank_mocap(args, hand_bbox_detector, body_mocap, hand_mocap, visualizer)
+    run_frank_mocap(args, hand_bbox_detector, body_mocap, hand_mocap)
   
 
 
