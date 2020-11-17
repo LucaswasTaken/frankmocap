@@ -93,26 +93,6 @@ def generate_json_structure():
               "x": [],
               "y": [],
               "z": []
-          },
-          "leftKnee": {
-              "x": [],
-              "y": [],
-              "z": []
-          },
-          "rightKnee": {
-              "x": [],
-              "y": [],
-              "z": []
-          },
-          "leftAnkle": {
-              "x": [],
-              "y": [],
-              "z": []
-          },
-          "rightAnkle": {
-              "x": [],
-              "y": [],
-              "z": []
           }
       },
       "leftHand": {
@@ -345,11 +325,7 @@ def fill_body_joints(output_json,pred_output_list):
     ["leftWrist",7],
     ["rightWrist",4],
     ["leftHip",12],
-    ["rightHip",9],
-    ["leftKnee",13],
-    ["rightKnee",10],
-    ["leftAnkle",14],
-    ["rightAnkle",11]
+    ["rightHip",9]
     ]
     for pair in correspondence:
       output_json["posenet"][pair[0]]["x"].append(pred_output_list[0][0]["pred_joints_smpl"][pair[1]][0])
@@ -459,24 +435,7 @@ def run_frank_mocap(args, bbox_detector, body_mocap, hand_mocap):
         # load data
         load_bbox = False
 
-        if input_type =="image_dir":
-            if cur_frame < len(input_data):
-                image_path = input_data[cur_frame]
-                img_original_bgr  = cv2.imread(image_path)
-            else:
-                img_original_bgr = None
-
-        elif input_type == "bbox_dir":
-            if cur_frame < len(input_data):
-                image_path = input_data[cur_frame]["image_path"]
-                hand_bbox_list = input_data[cur_frame]["hand_bbox_list"]
-                body_bbox_list = input_data[cur_frame]["body_bbox_list"]
-                img_original_bgr  = cv2.imread(image_path)
-                load_bbox = True
-            else:
-                img_original_bgr = None
-
-        elif input_type == "video":      
+        if  input_type == "video":      
             _, img_original_bgr = input_data.read()
             if video_frame < cur_frame:
                 video_frame += 1
@@ -484,26 +443,8 @@ def run_frank_mocap(args, bbox_detector, body_mocap, hand_mocap):
 
             
           # save the obtained video frames
-            image_path = osp.join(args.out_dir, "frames", f"{cur_frame:05d}.jpg")
             if img_original_bgr is not None:
                 video_frame += 1
-                if args.save_frame:
-                    gnu.make_subdir(image_path)
-                    cv2.imwrite(image_path, img_original_bgr)
-        
-        elif input_type == "webcam":
-            _, img_original_bgr = input_data.read()
-
-            if video_frame < cur_frame:
-                video_frame += 1
-                continue
-            # save the obtained video frames
-            image_path = osp.join(args.out_dir, "frames", f"scene_{cur_frame:05d}.jpg")
-            if img_original_bgr is not None:
-                video_frame += 1
-                if args.save_frame:
-                    gnu.make_subdir(image_path)
-                    cv2.imwrite(image_path, img_original_bgr)
         else:
             assert False, "Unknown input_type"
     
@@ -521,36 +462,20 @@ def run_frank_mocap(args, bbox_detector, body_mocap, hand_mocap):
             args, img_original_bgr, 
             body_bbox_list, hand_bbox_list, bbox_detector,
             body_mocap, hand_mocap, output_json)
-        #calculando escala da figura
-        if(video_frame == 1):
-          # height, width
-            # height = img_original_bgr.shape[0]
-            # width = img_original_bgr.shape[0]
-            width = 640
-            height = 360
-            scalex = width/2
-            scaley = height/2
-            scalez = np.sqrt(scalex**2 + scaley**2)
-            scale = [scalex,scaley,scalez]
-        #Associando com nosso Json
-        output_json = fill_body_joints(output_json,pred_output_list)
-        print(output_json)
-        #salvando nosso output em arquivo
-    if(args.scale):
-        output_json = scale_joints(output_json,scale)
+
     json_name = str(args.input_path)[0:-4] + ".json"
     with open(json_name, "w") as outfile:
         output_json = str(output_json).replace("'",'"')
         json.dump(output_json,outfile)
+
 def main():
     args = DemoOptions().parse()
     args.use_smplx = True
 
-    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-    # assert torch.cuda.is_available(), "Current version only supports GPU"
+    device = torch.device("cpu")
 
     hand_bbox_detector =  HandBboxDetector("third_view", device)
-    print(device)
+
     #Set Mocap regressor
     body_mocap = BodyMocap(args.checkpoint_body_smplx, args.smpl_dir, device = device, use_smplx= True)
     hand_mocap = HandMocap(args.checkpoint_hand, args.smpl_dir, device = device)
