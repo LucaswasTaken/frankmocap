@@ -66,13 +66,6 @@ def __video_setup(args):
         frame_dir = osp.join(args.out_dir, "frames")
         gnu.build_dir(frame_dir)    
 
-    render_out_dir = osp.join(args.out_dir, "rendered")
-    gnu.build_dir(render_out_dir)
-
-    mocap_out_dir = osp.join(args.out_dir, "mocap")
-    gnu.build_dir(mocap_out_dir)
-
-
 def __img_seq_setup(args):
     seq_dir_path = args.input_path
     args.seq_name = os.path.basename(args.input_path)
