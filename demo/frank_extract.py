@@ -448,11 +448,12 @@ def run_frank_mocap(args, bbox_detector, body_mocap, hand_mocap):
         else:
             assert False, "Unknown input_type"
     
-        cur_frame +=1
+        cur_frame +=1        
         if img_original_bgr is None or cur_frame > args.end_frame:
             break   
         print("--------------------------------------")
-        
+        if(cur_frame%6!=1):
+          continue
         # bbox detection
         if not load_bbox:
             body_bbox_list, hand_bbox_list = list(), list()
@@ -462,7 +463,10 @@ def run_frank_mocap(args, bbox_detector, body_mocap, hand_mocap):
             args, img_original_bgr, 
             body_bbox_list, hand_bbox_list, bbox_detector,
             body_mocap, hand_mocap, output_json)
-
+        #Associando com nosso Json
+        output_json = fill_body_joints(output_json,pred_output_list)
+        
+    #salvando nosso output em arquivo
     json_name = str(args.input_path)[0:-4] + ".json"
     with open(json_name, "w") as outfile:
         output_json = str(output_json).replace("'",'"')
