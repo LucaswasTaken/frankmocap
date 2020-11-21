@@ -8,7 +8,7 @@ import mocap_utils.geometry_utils as gu
 from mocap_utils.coordconv import convert_smpl_to_bbox, convert_bbox_to_oriIm
 
 
-def fill_hand_joints(output_json,pred_rhand_joints_3d,pred_lhand_joints_3d):
+def fill_hand_joints(output_json,rhands,lhands):
     correspondence =[["hand",0],
         ["thumb_root",1],
         ["thumb_base",2],
@@ -31,6 +31,11 @@ def fill_hand_joints(output_json,pred_rhand_joints_3d,pred_lhand_joints_3d):
         ["pinky_mid",19],
         ["pinky_tip",20]
     ]
+    rhands = np.array(rhands)
+    lhands = np.array(lhands)
+    pred_rhand_joints_3d = sum(rhands)/len(rhands)
+    pred_lhand_joints_3d = sum(lhands)/len(lhands)
+    
     for pair in correspondence:
       output_json["rightHand"][pair[0]]["x"].append(pred_rhand_joints_3d[int(pair[1])][0])
       output_json["rightHand"][pair[0]]["y"].append(pred_rhand_joints_3d[int(pair[1])][1])
@@ -125,6 +130,8 @@ def transfer_rotation(
 
 def intergration_copy_paste(pred_body_list, pred_hand_list, smplx_model, image_shape, output_json):
     integral_output_list = list()
+    lhands = []
+    rhands = []
     for i in range(len(pred_body_list)):
         body_info = pred_body_list[i]
         hand_info = pred_hand_list[i]
@@ -133,35 +140,35 @@ def intergration_copy_paste(pred_body_list, pred_hand_list, smplx_model, image_s
             continue
     
         # copy and paste 
-        pred_betas = torch.from_numpy(body_info["pred_betas"]).cpu()
-        pred_rotmat = torch.from_numpy(body_info["pred_rotmat"]).cpu()
+        pred_betas = torch.from_numpy(body_info["pred_betas"]).cuda()
+        pred_rotmat = torch.from_numpy(body_info["pred_rotmat"]).cuda()
 
         # integrate right hand pose
         hand_output = dict()
         if hand_info is not None and hand_info["right_hand"] is not None:
-            right_hand_pose = torch.from_numpy(hand_info["right_hand"]["pred_hand_pose"][:, 3:]).cpu()
-            right_hand_global_orient = torch.from_numpy(hand_info["right_hand"]["pred_hand_pose"][:,: 3]).cpu()
+            right_hand_pose = torch.from_numpy(hand_info["right_hand"]["pred_hand_pose"][:, 3:]).cuda()
+            right_hand_global_orient = torch.from_numpy(hand_info["right_hand"]["pred_hand_pose"][:,: 3]).cuda()
             right_hand_local_orient = transfer_rotation(
                 smplx_model, pred_rotmat, right_hand_global_orient, 21)
             pred_rotmat[0, 21] = right_hand_local_orient
         else:
-            right_hand_pose = torch.from_numpy(np.zeros( (1,45) , dtype= np.float32)).cpu()
+            right_hand_pose = torch.from_numpy(np.zeros( (1,45) , dtype= np.float32)).cuda()
             right_hand_global_orient = None
             right_hand_local_orient = None
 
         # integrate left hand pose
         if hand_info is not None and hand_info["left_hand"] is not None:
-            left_hand_pose = torch.from_numpy(hand_info["left_hand"]["pred_hand_pose"][:, 3:]).cpu()
-            left_hand_global_orient = torch.from_numpy(hand_info["left_hand"]["pred_hand_pose"][:, :3]).cpu()
+            left_hand_pose = torch.from_numpy(hand_info["left_hand"]["pred_hand_pose"][:, 3:]).cuda()
+            left_hand_global_orient = torch.from_numpy(hand_info["left_hand"]["pred_hand_pose"][:, :3]).cuda()
             left_hand_local_orient = transfer_rotation(
                 smplx_model, pred_rotmat, left_hand_global_orient, 20)
             pred_rotmat[0, 20] = left_hand_local_orient
         else:
-            left_hand_pose = torch.from_numpy(np.zeros((1,45), dtype= np.float32)).cpu()
+            left_hand_pose = torch.from_numpy(np.zeros((1,45), dtype= np.float32)).cuda()
             left_hand_global_orient = None
             left_hand_local_orient = None
 
-        pred_aa = gu.rotation_matrix_to_angle_axis(pred_rotmat).cpu()
+        pred_aa = gu.rotation_matrix_to_angle_axis(pred_rotmat).cuda()
         pred_aa = pred_aa.reshape(pred_aa.shape[0], 72)
         smplx_output = smplx_model(
             betas = pred_betas, 
@@ -180,8 +187,10 @@ def intergration_copy_paste(pred_body_list, pred_hand_list, smplx_model, image_s
         pred_lhand_joints_3d = smplx_output.left_hand_joints
         pred_lhand_joints_3d = pred_lhand_joints_3d[0].detach().cpu().numpy()
 
-        #associando as juntas das maos ao output_json
-        output_json = fill_hand_joints(output_json,pred_rhand_joints_3d,pred_lhand_joints_3d)
+        #copiando as juntas das maos ao output_json
+        rhands.append(pred_rhand_joints_3d)
+        lhands.append(pred_lhand_joints_3d)
+        
 
         camScale = body_info["pred_camera"][0]
         camTrans = body_info["pred_camera"][1:]
@@ -211,14 +220,14 @@ def intergration_copy_paste(pred_body_list, pred_hand_list, smplx_model, image_s
         r_hand_local_orient_body = body_info["pred_rotmat"][:, 21] # rot-mat
         r_hand_global_orient_body = transfer_rotation(
             smplx_model, pred_rotmat,
-            torch.from_numpy(r_hand_local_orient_body).cpu(),
+            torch.from_numpy(r_hand_local_orient_body).cuda(),
             21, "l2g", "aa").numpy().reshape(1, 3) # aa
         r_hand_local_orient_body = gu.rotation_matrix_to_angle_axis(r_hand_local_orient_body) # rot-mat -> aa
 
         l_hand_local_orient_body = body_info["pred_rotmat"][:, 20]
         l_hand_global_orient_body = transfer_rotation(
             smplx_model, pred_rotmat,
-            torch.from_numpy(l_hand_local_orient_body).cpu(),
+            torch.from_numpy(l_hand_local_orient_body).cuda(),
             20, "l2g", "aa").numpy().reshape(1, 3)
         l_hand_local_orient_body = gu.rotation_matrix_to_angle_axis(l_hand_local_orient_body) # rot-mat -> aa
 
@@ -282,5 +291,5 @@ def intergration_copy_paste(pred_body_list, pred_hand_list, smplx_model, image_s
         integral_output["right_hand_bbox_top_left"] = right_hand_bbox_top_left
 
         integral_output_list.append(integral_output)
-
+    output_json = fill_hand_joints(output_json,rhands,lhands)
     return integral_output_list, output_json
