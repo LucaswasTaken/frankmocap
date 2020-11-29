@@ -424,7 +424,7 @@ def run_regress(
     return body_bbox_list, hand_bbox_list, integral_output_list
 
 
-def run_frank_mocap(args, bbox_detector, body_mocap, hand_mocap, visualizer):
+def run_frank_mocap(args, bbox_detector, body_mocap, hand_mocap):
     # Setup input data to handle different types of inputs
     input_type, input_data = demo_utils.setup_input(args)
     cur_frame = args.start_frame
@@ -437,50 +437,13 @@ def run_frank_mocap(args, bbox_detector, body_mocap, hand_mocap, visualizer):
         # load data
         load_bbox = False
 
-        if input_type == "image_dir":
-            if cur_frame < len(input_data):
-                image_path = input_data[cur_frame]
-                img_original_bgr = cv2.imread(image_path)
-            else:
-                img_original_bgr = None
-
-        elif input_type == "bbox_dir":
-            if cur_frame < len(input_data):
-                image_path = input_data[cur_frame]["image_path"]
-                hand_bbox_list = input_data[cur_frame]["hand_bbox_list"]
-                body_bbox_list = input_data[cur_frame]["body_bbox_list"]
-                img_original_bgr = cv2.imread(image_path)
-                load_bbox = True
-            else:
-                img_original_bgr = None
-
-        elif input_type == "video":
+        if input_type == "video":
             _, img_original_bgr = input_data.read()
             if video_frame < cur_frame:
                 video_frame += 1
                 continue
 
-            # save the obtained video frames
-            image_path = osp.join(args.out_dir, "frames", f"{cur_frame:05d}.jpg")
-            if img_original_bgr is not None:
-                video_frame += 1
-                if args.save_frame:
-                    gnu.make_subdir(image_path)
-                    cv2.imwrite(image_path, img_original_bgr)
-
-        elif input_type == "webcam":
-            _, img_original_bgr = input_data.read()
-
-            if video_frame < cur_frame:
-                video_frame += 1
-                continue
-            # save the obtained video frames
-            image_path = osp.join(args.out_dir, "frames", f"scene_{cur_frame:05d}.jpg")
-            if img_original_bgr is not None:
-                video_frame += 1
-                if args.save_frame:
-                    gnu.make_subdir(image_path)
-                    cv2.imwrite(image_path, img_original_bgr)
+  
         else:
             assert False, "Unknown input_type"
 
