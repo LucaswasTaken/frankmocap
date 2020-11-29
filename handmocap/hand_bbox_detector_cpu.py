@@ -298,7 +298,7 @@ class Ego_Centric_Detector(BodyPoseEstimator):
         return None, body_bbox_list, hand_bbox_list, None
 
 
-class HandBboxDetector(object):
+class HandBboxDetector_cpu(object):
     def __init__(self, view_type, device):
         """
         args:
