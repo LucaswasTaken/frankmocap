@@ -12,7 +12,7 @@ import torch
 import torchvision.transforms as transforms
 # from PIL import Image
 
-from bodymocap.body_bbox_detector_cpu import BodyPoseEstimator
+from bodymocap.body_bbox_detector_cpu import BodyPoseEstimator_cpu
 
 # Type agnostic hand detector
 from detectron2.config import get_cfg
@@ -36,7 +36,7 @@ from detectors.hand_object_detector.lib.model.utils.blob import im_list_to_blob
 from detectors.hand_object_detector.lib.model.faster_rcnn.resnet import resnet as detector_resnet 
 
 
-class Third_View_Detector(BodyPoseEstimator):
+class Third_View_Detector(BodyPoseEstimator_cpu):
     """
     Hand Detector for third-view input.
     It combines a body pose estimator (https://github.com/jhugestar/lightweight-human-pose-estimation.pytorch.git)
@@ -134,7 +134,7 @@ class Third_View_Detector(BodyPoseEstimator):
         return body_pose_list, body_bbox_list, hand_bbox_list, raw_hand_bboxes
     
 
-class Ego_Centric_Detector(BodyPoseEstimator):
+class Ego_Centric_Detector(BodyPoseEstimator_cpu):
     """
     Hand Detector for ego-centric input.
     It uses type-aware hand detector:
