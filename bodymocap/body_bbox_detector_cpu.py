@@ -22,7 +22,7 @@ from detectors.body_pose_estimator.modules.pose import Pose, track_poses
 from detectors.body_pose_estimator.modules.keypoints import extract_keypoints, group_keypoints
 
 
-class BodyPoseEstimator(object):
+class BodyPoseEstimator_cpu(object):
     """
     Hand Detector for third-view input.
     It combines a body pose estimator (https://github.com/jhugestar/lightweight-human-pose-estimation.pytorch.git)
