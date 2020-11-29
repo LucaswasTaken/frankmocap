@@ -12,7 +12,7 @@ import torch
 import torchvision.transforms as transforms
 # from PIL import Image
 
-from bodymocap.body_bbox_detector import BodyPoseEstimator
+from bodymocap.body_bbox_detector_cpu import BodyPoseEstimator
 
 # Type agnostic hand detector
 from detectron2.config import get_cfg
@@ -54,6 +54,7 @@ class Third_View_Detector(BodyPoseEstimator):
         cfg.merge_from_file("detectors/hand_only_detector/faster_rcnn_X_101_32x8d_FPN_3x_100DOH.yaml")
         cfg.MODEL.WEIGHTS = 'extra_data/hand_module/hand_detector/model_0529999.pth' # add model weight here
         cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.3  # 0.3 , use low thresh to increase recall
+        cfg.MODEL.DEVICE = 'cpu'
         self.hand_detector = DefaultPredictor(cfg)
 
 

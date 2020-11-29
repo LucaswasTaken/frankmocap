@@ -13,6 +13,8 @@ import pickle
 
 ############# input parameters  #############
 from demo.demo_options import DemoOptions
+from bodymocap.body_mocap_api_cpu import BodyMocap_cpu
+from handmocap.hand_mocap_api_cpu import HandMocap_cpu
 from bodymocap.body_mocap_api import BodyMocap
 from handmocap.hand_mocap_api import HandMocap
 import mocap_utils.demo_utils as demo_utils
@@ -20,11 +22,10 @@ import mocap_utils.general_utils as gnu
 from mocap_utils.timer import Timer
 from datetime import datetime
 
-from bodymocap.body_bbox_detector import BodyPoseEstimator
-from handmocap.hand_bbox_detector import HandBboxDetector
-from intergraion.copy_and_paste import intergration_copy_paste
-
-from renderer.viewer2D import ImShow
+from bodymocap.body_bbox_detector_cpu import BodyPoseEstimator
+from handmocap.hand_bbox_detector_cpu import HandBboxDetector
+from integration.copy_and_paste_cpu import intergration_copy_paste_cpu
+from integration.copy_and_paste import intergration_copy_paste
 
 def generate_json_structure():
     output_json = {
@@ -357,6 +358,153 @@ def __filter_bbox_list(body_bbox_list, hand_bbox_list, single_person):
 
 
 def run_regress(
+        args, img_original_bgr,
+        body_bbox_list, hand_bbox_list, bbox_detector,
+        body_mocap, hand_mocap, output_json
+):
+    cond1 = len(body_bbox_list) > 0 and len(hand_bbox_list) > 0
+    cond2 = not args.frankmocap_fast_mode
+
+    # use pre-computed bbox or use slow detection mode
+    if cond1 or cond2:
+        if not cond1 and cond2:
+            # run detection only when bbox is not available
+            body_pose_list, body_bbox_list, hand_bbox_list, _ = \
+                bbox_detector.detect_hand_bbox(img_original_bgr.copy())
+        else:
+            print("Use pre-computed bounding boxes")
+        assert len(body_bbox_list) == len(hand_bbox_list)
+
+        if len(body_bbox_list) < 1:
+            return list(), list(), list()
+
+        # sort the bbox using bbox size
+        # only keep on bbox if args.single_person is set
+        body_bbox_list, hand_bbox_list = __filter_bbox_list(
+            body_bbox_list, hand_bbox_list, args.single_person)
+
+        # hand & body pose regression
+        pred_hand_list = hand_mocap.regress(
+            img_original_bgr, hand_bbox_list, add_margin=True)
+        pred_body_list = body_mocap.regress(img_original_bgr, body_bbox_list)
+        assert len(hand_bbox_list) == len(pred_hand_list)
+        assert len(pred_hand_list) == len(pred_body_list)
+
+    else:
+        _, body_bbox_list = bbox_detector.detect_body_bbox(img_original_bgr.copy())
+
+        if len(body_bbox_list) < 1:
+            return list(), list(), list()
+
+        # sort the bbox using bbox size
+        # only keep on bbox if args.single_person is set
+        hand_bbox_list = [None, ] * len(body_bbox_list)
+        body_bbox_list, _ = __filter_bbox_list(
+            body_bbox_list, hand_bbox_list, args.single_person)
+
+        # body regression first
+        pred_body_list = body_mocap.regress(img_original_bgr, body_bbox_list)
+        assert len(body_bbox_list) == len(pred_body_list)
+
+        # get hand bbox from body
+        hand_bbox_list = body_mocap.get_hand_bboxes(pred_body_list, img_original_bgr.shape[:2])
+        assert len(pred_body_list) == len(hand_bbox_list)
+
+        # hand regression
+        pred_hand_list = hand_mocap.regress(
+            img_original_bgr, hand_bbox_list, add_margin=True)
+        assert len(hand_bbox_list) == len(pred_hand_list)
+
+        # intergration by copy-and-paste
+    integral_output_list = intergration_copy_paste(
+        pred_body_list, pred_hand_list, body_mocap.smpl, img_original_bgr.shape, output_json)
+
+    return body_bbox_list, hand_bbox_list, integral_output_list
+
+
+def run_frank_mocap(args, bbox_detector, body_mocap, hand_mocap, visualizer):
+    # Setup input data to handle different types of inputs
+    input_type, input_data = demo_utils.setup_input(args)
+    cur_frame = args.start_frame
+    video_frame = 0
+
+    # Nossa estrutura de saida
+    output_json = generate_json_structure()
+
+    while True:
+        # load data
+        load_bbox = False
+
+        if input_type == "image_dir":
+            if cur_frame < len(input_data):
+                image_path = input_data[cur_frame]
+                img_original_bgr = cv2.imread(image_path)
+            else:
+                img_original_bgr = None
+
+        elif input_type == "bbox_dir":
+            if cur_frame < len(input_data):
+                image_path = input_data[cur_frame]["image_path"]
+                hand_bbox_list = input_data[cur_frame]["hand_bbox_list"]
+                body_bbox_list = input_data[cur_frame]["body_bbox_list"]
+                img_original_bgr = cv2.imread(image_path)
+                load_bbox = True
+            else:
+                img_original_bgr = None
+
+        elif input_type == "video":
+            _, img_original_bgr = input_data.read()
+            if video_frame < cur_frame:
+                video_frame += 1
+                continue
+
+            # save the obtained video frames
+            image_path = osp.join(args.out_dir, "frames", f"{cur_frame:05d}.jpg")
+            if img_original_bgr is not None:
+                video_frame += 1
+                if args.save_frame:
+                    gnu.make_subdir(image_path)
+                    cv2.imwrite(image_path, img_original_bgr)
+
+        elif input_type == "webcam":
+            _, img_original_bgr = input_data.read()
+
+            if video_frame < cur_frame:
+                video_frame += 1
+                continue
+            # save the obtained video frames
+            image_path = osp.join(args.out_dir, "frames", f"scene_{cur_frame:05d}.jpg")
+            if img_original_bgr is not None:
+                video_frame += 1
+                if args.save_frame:
+                    gnu.make_subdir(image_path)
+                    cv2.imwrite(image_path, img_original_bgr)
+        else:
+            assert False, "Unknown input_type"
+
+        cur_frame += 1
+        if img_original_bgr is None or cur_frame > args.end_frame:
+            break
+        print("--------------------------------------")
+
+        # bbox detection
+        if not load_bbox:
+            body_bbox_list, hand_bbox_list = list(), list()
+
+        # regression (includes integration)
+        body_bbox_list, hand_bbox_list, pred_output_list = run_regress(
+            args, img_original_bgr,
+            body_bbox_list, hand_bbox_list, bbox_detector,
+            body_mocap, hand_mocap, output_json)
+        # Associando com nosso Json
+        output_json = fill_body_joints(output_json, pred_output_list)
+        # salvando nosso output em arquivo
+    json_name = str(args.input_path)[0:-4] + ".json"
+    with open(json_name, "w") as outfile:
+        output_json = str(output_json).replace("'", '"')
+        json.dump(output_json, outfile)
+
+def run_regress_cpu(
     args, img_original_bgr, 
     body_bbox_list, hand_bbox_list, bbox_detector,
     body_mocap, hand_mocap,output_json
@@ -415,13 +563,13 @@ def run_regress(
         assert len(hand_bbox_list) == len(pred_hand_list) 
 
     # intergration by copy-and-paste
-    integral_output_list = intergration_copy_paste(
+    integral_output_list = intergration_copy_paste_cpu(
         pred_body_list, pred_hand_list, body_mocap.smpl, img_original_bgr.shape, output_json)
     
     return body_bbox_list, hand_bbox_list, integral_output_list
 
 
-def run_frank_mocap(args, bbox_detector, body_mocap, hand_mocap):
+def run_frank_mocap_cpu(args, bbox_detector, body_mocap, hand_mocap):
     #Setup input data to handle different types of inputs
     input_type, input_data = demo_utils.setup_input(args)
     cur_frame = args.start_frame
@@ -459,7 +607,7 @@ def run_frank_mocap(args, bbox_detector, body_mocap, hand_mocap):
             body_bbox_list, hand_bbox_list = list(), list()
         
         # regression (includes integration)
-        body_bbox_list, hand_bbox_list, pred_output_list = run_regress(
+        body_bbox_list, hand_bbox_list, pred_output_list = run_regress_cpu(
             args, img_original_bgr, 
             body_bbox_list, hand_bbox_list, bbox_detector,
             body_mocap, hand_mocap, output_json)
@@ -476,16 +624,22 @@ def main():
     args = DemoOptions().parse()
     args.use_smplx = True
 
-    device = torch.device("cpu")
+    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
     hand_bbox_detector =  HandBboxDetector("third_view", device)
 
     #Set Mocap regressor
-    body_mocap = BodyMocap(args.checkpoint_body_smplx, args.smpl_dir, device = device, use_smplx= True)
-    hand_mocap = HandMocap(args.checkpoint_hand, args.smpl_dir, device = device)
+    if(torch.cuda.is_available()):
+        body_mocap = BodyMocap(args.checkpoint_body_smplx, args.smpl_dir, device=device, use_smplx=True)
+        hand_mocap = HandMocap(args.checkpoint_hand, args.smpl_dir, device=device)
 
-    run_frank_mocap(args, hand_bbox_detector, body_mocap, hand_mocap)
-  
+        run_frank_mocap(args, hand_bbox_detector, body_mocap, hand_mocap)
+    else:
+        body_mocap = BodyMocap_cpu(args.checkpoint_body_smplx, args.smpl_dir, device = device, use_smplx= True)
+        hand_mocap = HandMocap_cpu(args.checkpoint_hand, args.smpl_dir, device = device)
+
+        run_frank_mocap_cpu(args, hand_bbox_detector, body_mocap, hand_mocap)
+
 
 
 if __name__ == "__main__":

@@ -8,12 +8,12 @@ import cv2
 from torchvision.transforms import transforms
 
 from handmocap.hand_modules.test_options import TestOptions
-from handmocap.hand_modules.h3dw_model import H3DWModel
+from handmocap.hand_modules.h3dw_model_cpu import H3DWModel
 from mocap_utils.coordconv import convert_smpl_to_bbox, convert_bbox_to_oriIm
 
 
-class HandMocap:
-    def __init__(self, regressor_checkpoint, smpl_dir, device = torch.device('cuda') , use_smplx = False):
+class HandMocap_cpu:
+    def __init__(self, regressor_checkpoint, smpl_dir, device = torch.device('cpu') , use_smplx = False):
         #For image transform
         transform_list = [ transforms.ToTensor(),
                           transforms.Normalize((0.5, 0.5, 0.5),

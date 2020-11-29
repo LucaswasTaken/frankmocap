@@ -48,7 +48,7 @@ class H3DWEncoder(nn.Module):
     def __init__(self, opt, mean_params):
         super(H3DWEncoder, self).__init__()
         self.two_branch = opt.two_branch
-        self.mean_params = mean_params.clone().cpu()
+        self.mean_params = mean_params.clone().cuda()
         self.opt = opt
 
         relu = nn.ReLU(inplace=False)

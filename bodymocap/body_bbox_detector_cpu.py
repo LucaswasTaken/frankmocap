@@ -33,12 +33,13 @@ class BodyPoseEstimator(object):
     
 
     def __load_body_estimator(self):
-        net = PoseEstimationWithMobileNet()
+        device = torch.device('cpu')
+        net = PoseEstimationWithMobileNet().to(device)
         pose2d_checkpoint = "./extra_data/body_module/body_pose_estimator/checkpoint_iter_370000.pth"
         checkpoint = torch.load(pose2d_checkpoint, map_location='cpu')
         load_state(net, checkpoint)
         net = net.eval()
-        net = net.cuda()
+        # net = net.cuda()
         self.model = net
     
 
@@ -55,7 +56,7 @@ class BodyPoseEstimator(object):
 
         tensor_img = torch.from_numpy(padded_img).permute(2, 0, 1).unsqueeze(0).float()
         if not cpu:
-            tensor_img = tensor_img.cuda()
+            tensor_img = tensor_img.cpu()
 
         stages_output = self.model(tensor_img)
 

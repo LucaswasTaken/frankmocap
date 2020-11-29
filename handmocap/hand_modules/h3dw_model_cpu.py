@@ -18,7 +18,7 @@ from torch.nn.parallel import DistributedDataParallel
 import pdb
 import cv2
 from . import resnet
-from handmocap.hand_modules.h3dw_networks import H3DWEncoder
+from handmocap.hand_modules.h3dw_networks_cpu import H3DWEncoder
 import time
 import mocap_utils.general_utils as gnu
 import smplx

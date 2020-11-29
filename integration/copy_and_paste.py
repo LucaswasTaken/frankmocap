@@ -8,7 +8,7 @@ import mocap_utils.geometry_utils as gu
 from mocap_utils.coordconv import convert_smpl_to_bbox, convert_bbox_to_oriIm
 
 
-def fill_hand_joints(output_json,rhands,lhands):
+def fill_hand_joints(output_json,pred_rhand_joints_3d,pred_lhand_joints_3d):
     correspondence =[["hand",0],
         ["thumb_root",1],
         ["thumb_base",2],
@@ -31,11 +31,6 @@ def fill_hand_joints(output_json,rhands,lhands):
         ["pinky_mid",19],
         ["pinky_tip",20]
     ]
-    rhands = np.array(rhands)
-    lhands = np.array(lhands)
-    pred_rhand_joints_3d = sum(rhands)/len(rhands)
-    pred_lhand_joints_3d = sum(lhands)/len(lhands)
-    
     for pair in correspondence:
       output_json["rightHand"][pair[0]]["x"].append(pred_rhand_joints_3d[int(pair[1])][0])
       output_json["rightHand"][pair[0]]["y"].append(pred_rhand_joints_3d[int(pair[1])][1])
@@ -130,9 +125,8 @@ def transfer_rotation(
 
 def intergration_copy_paste(pred_body_list, pred_hand_list, smplx_model, image_shape, output_json):
     integral_output_list = list()
-    lhands = []
-    rhands = []
     for i in range(len(pred_body_list)):
+        print(i)
         body_info = pred_body_list[i]
         hand_info = pred_hand_list[i]
         if body_info is None:
@@ -187,10 +181,9 @@ def intergration_copy_paste(pred_body_list, pred_hand_list, smplx_model, image_s
         pred_lhand_joints_3d = smplx_output.left_hand_joints
         pred_lhand_joints_3d = pred_lhand_joints_3d[0].detach().cpu().numpy()
 
-        #copiando as juntas das maos ao output_json
-        rhands.append(pred_rhand_joints_3d)
-        lhands.append(pred_lhand_joints_3d)
-        
+        #associando as juntas das maos ao output_json
+        if(i==0):
+          output_json = fill_hand_joints(output_json,pred_rhand_joints_3d,pred_lhand_joints_3d)
 
         camScale = body_info["pred_camera"][0]
         camTrans = body_info["pred_camera"][1:]
@@ -291,5 +284,5 @@ def intergration_copy_paste(pred_body_list, pred_hand_list, smplx_model, image_s
         integral_output["right_hand_bbox_top_left"] = right_hand_bbox_top_left
 
         integral_output_list.append(integral_output)
-    output_json = fill_hand_joints(output_json,rhands,lhands)
+
     return integral_output_list, output_json
