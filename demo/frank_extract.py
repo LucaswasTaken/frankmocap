@@ -22,8 +22,10 @@ import mocap_utils.general_utils as gnu
 from mocap_utils.timer import Timer
 from datetime import datetime
 
-from bodymocap.body_bbox_detector_cpu import BodyPoseEstimator
-from handmocap.hand_bbox_detector_cpu import HandBboxDetector
+from bodymocap.body_bbox_detector import BodyPoseEstimator
+from handmocap.hand_bbox_detector import HandBboxDetector
+from bodymocap.body_bbox_detector_cpu import BodyPoseEstimator_cpu
+from handmocap.hand_bbox_detector_cpu import HandBboxDetector_cpu
 from integration.copy_and_paste_cpu import intergration_copy_paste_cpu
 from integration.copy_and_paste import intergration_copy_paste
 
@@ -422,7 +424,7 @@ def run_regress(
     return body_bbox_list, hand_bbox_list, integral_output_list
 
 
-def run_frank_mocap(args, bbox_detector, body_mocap, hand_mocap):
+def run_frank_mocap(args, bbox_detector, body_mocap, hand_mocap, visualizer):
     # Setup input data to handle different types of inputs
     input_type, input_data = demo_utils.setup_input(args)
     cur_frame = args.start_frame
@@ -434,11 +436,51 @@ def run_frank_mocap(args, bbox_detector, body_mocap, hand_mocap):
     while True:
         # load data
         load_bbox = False
-        if input_type == "video":
+
+        if input_type == "image_dir":
+            if cur_frame < len(input_data):
+                image_path = input_data[cur_frame]
+                img_original_bgr = cv2.imread(image_path)
+            else:
+                img_original_bgr = None
+
+        elif input_type == "bbox_dir":
+            if cur_frame < len(input_data):
+                image_path = input_data[cur_frame]["image_path"]
+                hand_bbox_list = input_data[cur_frame]["hand_bbox_list"]
+                body_bbox_list = input_data[cur_frame]["body_bbox_list"]
+                img_original_bgr = cv2.imread(image_path)
+                load_bbox = True
+            else:
+                img_original_bgr = None
+
+        elif input_type == "video":
             _, img_original_bgr = input_data.read()
             if video_frame < cur_frame:
                 video_frame += 1
                 continue
+
+            # save the obtained video frames
+            image_path = osp.join(args.out_dir, "frames", f"{cur_frame:05d}.jpg")
+            if img_original_bgr is not None:
+                video_frame += 1
+                if args.save_frame:
+                    gnu.make_subdir(image_path)
+                    cv2.imwrite(image_path, img_original_bgr)
+
+        elif input_type == "webcam":
+            _, img_original_bgr = input_data.read()
+
+            if video_frame < cur_frame:
+                video_frame += 1
+                continue
+            # save the obtained video frames
+            image_path = osp.join(args.out_dir, "frames", f"scene_{cur_frame:05d}.jpg")
+            if img_original_bgr is not None:
+                video_frame += 1
+                if args.save_frame:
+                    gnu.make_subdir(image_path)
+                    cv2.imwrite(image_path, img_original_bgr)
         else:
             assert False, "Unknown input_type"
 
@@ -586,15 +628,17 @@ def main():
 
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
-    hand_bbox_detector =  HandBboxDetector("third_view", device)
+
 
     #Set Mocap regressor
     if(torch.cuda.is_available()):
+        hand_bbox_detector = HandBboxDetector("third_view", device)
         body_mocap = BodyMocap(args.checkpoint_body_smplx, args.smpl_dir, device=device, use_smplx=True)
         hand_mocap = HandMocap(args.checkpoint_hand, args.smpl_dir, device=device)
 
         run_frank_mocap(args, hand_bbox_detector, body_mocap, hand_mocap)
     else:
+        hand_bbox_detector = HandBboxDetector_cpu("third_view", device)
         body_mocap = BodyMocap_cpu(args.checkpoint_body_smplx, args.smpl_dir, device = device, use_smplx= True)
         hand_mocap = HandMocap_cpu(args.checkpoint_hand, args.smpl_dir, device = device)
 
