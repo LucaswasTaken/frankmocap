@@ -37,6 +37,11 @@ def generate_json_structure():
               "y": [],
               "z": []
           },
+          "neck": {
+              "x": [],
+              "y": [],
+              "z": []
+          },
           "leftEye": {
               "x": [],
               "y": [],
@@ -317,6 +322,7 @@ def generate_json_structure():
 
 def fill_body_joints(output_json,pred_output_list):
     correspondence =[["nose",0],
+    ["neck",1],
     ["leftEye",16],
     ["rightEye",15],
     ["leftEar",18],
@@ -336,6 +342,81 @@ def fill_body_joints(output_json,pred_output_list):
       output_json["posenet"][pair[0]]["z"].append(pred_output_list[0][0]["pred_joints_smpl"][pair[1]][2])
     return output_json
 
+def print_frame_json(output_json,frame):
+    frame_json = {
+    "version":1.1,
+    "people":[
+        {
+            "pose_keypoints_2d":[],
+            "face_keypoints_2d":[],
+            "hand_left_keypoints_2d":[],
+            "hand_right_keypoints_2d":[],
+            "pose_keypoints_3d":[],
+            "face_keypoints_3d":[],
+            "hand_left_keypoints_3d":[],
+            "hand_right_keypoints_3d":[]
+        }
+    ],
+    "part_candidates":[]
+}
+    body_order = ["nose",
+    "neck",
+    "rightShoulder",
+    "rightElbow",
+    "rightWrist",
+    "leftShoulder",
+    "leftElbow",
+    "leftWrist",
+    "rightHip",
+    "rightHip",
+    "rightHip",
+    "leftHip",
+    "leftHip",
+    "leftHip",
+    "rightEye",
+    "leftEye",
+    "rightEar",
+    "leftEar"]
+
+    hand_order = [
+      "hand",
+      "thumb_root",
+      "thumb_base",
+      "thumb_mid",
+      "thumb_tip",
+      "index_root",
+      "index_base",
+      "index_mid",
+      "index_tip",
+      "middle_root",
+      "middle_base",
+      "middle_mid",
+      "middle_tip",
+      "ring_root",
+      "ring_base",
+      "ring_mid",
+      "ring_tip",
+      "pinky_root",
+      "pinky_base",
+      "pinky_mid",
+      "pinky_tip"
+    ]
+    for joint in body_order:
+      frame_json["people"][0]["pose_keypoints_2d"].append(output_json["posenet"][joint]["x"][frame-1])
+      frame_json["people"][0]["pose_keypoints_2d"].append(output_json["posenet"][joint]["y"][frame-1])
+      frame_json["people"][0]["pose_keypoints_2d"].append(1.0)
+    for joint in hand_order:
+      frame_json["people"][0]["hand_left_keypoints_2d"].append(output_json["leftHand"][joint]["x"][frame-1])
+      frame_json["people"][0]["hand_left_keypoints_2d"].append(output_json["leftHand"][joint]["y"][frame-1])
+      frame_json["people"][0]["hand_left_keypoints_2d"].append(1.0)
+      frame_json["people"][0]["hand_right_keypoints_2d"].append(output_json["rightHand"][joint]["x"][frame-1])
+      frame_json["people"][0]["hand_right_keypoints_2d"].append(output_json["rightHand"][joint]["y"][frame-1])
+      frame_json["people"][0]["hand_right_keypoints_2d"].append(1.0)
+    
+    json_name = "/content/frames_json/" +"frame_json_" + str(frame) + ".json" 
+    with open(json_name, "w") as outfile:
+        json.dump(str(frame_json),outfile)
+    
 def scale_joints(output_json,scale):
     size = len(output_json['posenet']['nose']['x'])
     for key in output_json.keys():
@@ -565,8 +646,8 @@ def run_frank_mocap_cpu(args, bbox_detector, body_mocap, hand_mocap):
         if img_original_bgr is None or cur_frame > args.end_frame:
             break   
         print("--------------------------------------")
-        if(cur_frame%6!=1):
-          continue
+        # if(cur_frame%6!=1):
+        #   continue
         # bbox detection
         if not load_bbox:
             body_bbox_list, hand_bbox_list = list(), list()
@@ -578,12 +659,12 @@ def run_frank_mocap_cpu(args, bbox_detector, body_mocap, hand_mocap):
             body_mocap, hand_mocap, output_json)
         #Associando com nosso Json
         output_json = fill_body_joints(output_json,pred_output_list)
-        
+        print_frame_json(output_json,cur_frame)
     #salvando nosso output em arquivo
     json_name = str(args.input_path)[0:-4] + ".json"
     with open(json_name, "w") as outfile:
         output_json = str(output_json).replace("'",'"')
-        json.dump(output_json,outfile)
+        json.dump(output_json,json_name)
 
 def main():
     args = DemoOptions().parse()
