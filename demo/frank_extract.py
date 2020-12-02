@@ -442,7 +442,6 @@ def run_frank_mocap(args, bbox_detector, body_mocap, hand_mocap):
             if video_frame < cur_frame:
                 video_frame += 1
                 continue
-
   
         else:
             assert False, "Unknown input_type"
@@ -553,7 +552,6 @@ def run_frank_mocap_cpu(args, bbox_detector, body_mocap, hand_mocap):
             if video_frame < cur_frame:
                 video_frame += 1
                 continue
-
             
           # save the obtained video frames
             if img_original_bgr is not None:
@@ -565,8 +563,7 @@ def run_frank_mocap_cpu(args, bbox_detector, body_mocap, hand_mocap):
         if img_original_bgr is None or cur_frame > args.end_frame:
             break   
         print("--------------------------------------")
-        if(cur_frame%6!=1):
-          continue
+        
         # bbox detection
         if not load_bbox:
             body_bbox_list, hand_bbox_list = list(), list()
