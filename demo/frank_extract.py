@@ -691,10 +691,10 @@ def main():
                   output_json[key][little_key]['x'].append(data_dict[key][little_key]['x'][i-1])
                   output_json[key][little_key]['y'].append(data_dict[key][little_key]['y'][i-1])
                   output_json[key][little_key]['z'].append(data_dict[key][little_key]['z'][i-1])
-                  for j in range(5):
-                    output_json[key][little_key]['x'].append((4-j)*data_dict[key][little_key]['x'][i-1]/4+(j)*data_dict[key][little_key]['x'][i]/4)
-                    output_json[key][little_key]['y'].append((4-j)*data_dict[key][little_key]['y'][i-1]/4+(j)*data_dict[key][little_key]['y'][i]/4)
-                    output_json[key][little_key]['z'].append((4-j)*data_dict[key][little_key]['z'][i-1]/4+(j)*data_dict[key][little_key]['z'][i]/4)
+                  for j in range(6):
+                    output_json[key][little_key]['x'].append((5-j)*data_dict[key][little_key]['x'][i-1]/5+(j)*data_dict[key][little_key]['x'][i]/5)
+                    output_json[key][little_key]['y'].append((5-j)*data_dict[key][little_key]['y'][i-1]/5+(j)*data_dict[key][little_key]['y'][i]/5)
+                    output_json[key][little_key]['z'].append((5-j)*data_dict[key][little_key]['z'][i-1]/5+(j)*data_dict[key][little_key]['z'][i]/5)
             
         json_name = str(args.input_path)[0:-4] + ".json"
         with open(json_name, "w") as outfile:
