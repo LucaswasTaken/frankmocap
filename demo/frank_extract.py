@@ -96,6 +96,26 @@ def generate_json_structure():
               "x": [],
               "y": [],
               "z": []
+          },
+          "leftKnee": {
+              "x": [],
+              "y": [],
+              "z": []
+          },
+          "rightKnee": {
+              "x": [],
+              "y": [],
+              "z": []
+          },
+          "leftAnkle": {
+              "x": [],
+              "y": [],
+              "z": []
+          },
+          "rightAnkle": {
+              "x": [],
+              "y": [],
+              "z": []
           }
       },
       "leftHand": {
@@ -328,7 +348,11 @@ def fill_body_joints(output_json,pred_output_list):
     ["leftWrist",7],
     ["rightWrist",4],
     ["leftHip",12],
-    ["rightHip",9]
+    ["rightHip",9],
+    ["leftKnee",13],
+    ["rightKnee",10],
+    ["leftAnkle",14],
+    ["rightAnkle",11]
     ]
     for pair in correspondence:
       output_json["posenet"][pair[0]]["x"].append(pred_output_list[0][0]["pred_joints_smpl"][pair[1]][0])
